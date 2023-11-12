@@ -5,9 +5,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <dirent.h>
 #include <time.h>
 #include <stdint.h>
-
+#include <limits.h>
 
 struct BITMAPINFOHEADER {
     uint32_t biSize;
@@ -38,13 +39,8 @@ char *get_permissions(mode_t mode) {
     return permissions;
 }
 
-int main(int argc, char** argv) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <fisier_intrare>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-    
-    int fd = open(argv[1], O_RDONLY);
+void process_file(const char *filename, const char *output_file) {
+    int fd = open(filename, O_RDONLY);
     if (fd == -1) {
         perror("Eroare la deschiderea fisierului");
         exit(EXIT_FAILURE);
@@ -72,30 +68,50 @@ int main(int argc, char** argv) {
     char modification_time[20];
     strftime(modification_time, sizeof(modification_time), "%d.%m.%Y", localtime(&file_info.st_mtime));
 
-    char statistics[400];
-    snprintf(statistics, sizeof(statistics),
-        "nume fisier: %s\n"
-        "inaltime: %d\n"
-        "lungime: %d\n"
-        "dimensiune: %ld octeti\n"
-        "identificatorul utilizatorului: %d\n"
-        "timpul ultimei modificari: %s\n"
-        "contorul de legaturi: %ld\n"
-        "drepturi de acces user: %s\n"
-        "drepturi de acces grup: %s\n"
-        "drepturi de acces altii: %s\n",
-        argv[1],
-        height,
-        width,
-        file_info.st_size,
-        file_info.st_uid,
-        modification_time,
-        file_info.st_nlink,
-        get_permissions(file_info.st_mode),
-        get_permissions(file_info.st_mode >> 3),
-        get_permissions(file_info.st_mode >> 6));
+    char statistics[10000];
+    if (strstr(filename, ".bmp") != NULL) {
+        snprintf(statistics, sizeof(statistics),
+            "nume fisier: %s\n"
+            "inaltime: %d\n"
+            "lungime: %d\n"
+            "dimensiune: %ld octeti\n"
+            "identificatorul utilizatorului: %d\n"
+            "timpul ultimei modificari: %s\n"
+            "contorul de legaturi: %ld\n"
+            "drepturi de acces user: %s\n"
+            "drepturi de acces grup: %s\n"
+            "drepturi de acces altii: %s\n",
+            filename,
+            height,
+            width,
+            file_info.st_size,
+            file_info.st_uid,
+            modification_time,
+            file_info.st_nlink,
+            get_permissions(file_info.st_mode),
+            get_permissions(file_info.st_mode >> 3),
+            get_permissions(file_info.st_mode >> 6));
+    } else {
+        snprintf(statistics, sizeof(statistics),
+            "nume fisier: %s\n"
+            "dimensiune: %ld octeti\n"
+            "identificatorul utilizatorului: %d\n"
+            "timpul ultimei modificari: %s\n"
+            "contorul de legaturi: %ld\n"
+            "drepturi de acces user: %s\n"
+            "drepturi de acces grup: %s\n"
+            "drepturi de acces altii: %s\n",
+            filename,
+            file_info.st_size,
+            file_info.st_uid,
+            modification_time,
+            file_info.st_nlink,
+            get_permissions(file_info.st_mode),
+            get_permissions(file_info.st_mode >> 3),
+            get_permissions(file_info.st_mode >> 6));
+    }
 
-    int stats_fd = open("statistica.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    int stats_fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (stats_fd == -1) {
         perror("Eroare la deschiderea fisierului de statistici");
         close(fd);
@@ -111,6 +127,116 @@ int main(int argc, char** argv) {
 
     close(fd);
     close(stats_fd);
+}
+
+void process_directory_entry(const char *dirname, const char *entry, const char *output_file) {
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "%s/%s", dirname, entry);
+
+    struct stat file_info;
+    if (lstat(path, &file_info) == -1) {
+        perror("Eroare la obtinerea informatiilor despre fisier");
+        exit(EXIT_FAILURE);
+    }
+
+    char statistics[10000];
+
+    if (S_ISREG(file_info.st_mode)) {
+        process_file(path, output_file);
+    } else if (S_ISDIR(file_info.st_mode)) {
+        snprintf(statistics, sizeof(statistics),
+            "nume director: %s\n"
+            "identificatorul utilizatorului: %d\n"
+            "drepturi de acces user: %s\n"
+            "drepturi de acces grup: %s\n"
+            "drepturi de acces altii: %s\n",
+            path,
+            file_info.st_uid,
+            get_permissions(file_info.st_mode),
+            get_permissions(file_info.st_mode >> 3),
+            get_permissions(file_info.st_mode >> 6));
+
+        int stats_fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (stats_fd == -1) {
+            perror("Eroare la deschiderea fisierului de statistici");
+            exit(EXIT_FAILURE);
+        }
+
+        if (write(stats_fd, statistics, strlen(statistics)) == -1) {
+            perror("Eroare la scrierea in fisierul de statistici");
+            close(stats_fd);
+            exit(EXIT_FAILURE);
+        }
+
+        close(stats_fd);
+    } else if (S_ISLNK(file_info.st_mode)) {
+        char target_path[PATH_MAX];
+        ssize_t target_size = readlink(path, target_path, sizeof(target_path));
+
+        struct stat target_info;
+        if (lstat(target_path, &target_info) == -1) {
+            perror("Eroare la obtinerea informatiilor despre fisierul target al legaturii simbolice");
+            exit(EXIT_FAILURE);
+        }
+
+        snprintf(statistics, sizeof(statistics),
+            "nume legatura: %s\n"
+            "dimensiune: %ld octeti\n"
+            "dimensiune fisier: %ld octeti\n"
+            "drepturi de acces user: %s\n"
+            "drepturi de acces grup: %s\n"
+            "drepturi de acces altii: %s\n",
+            path,
+            file_info.st_size,
+            target_info.st_size,
+            get_permissions(file_info.st_mode),
+            get_permissions(file_info.st_mode >> 3),
+            get_permissions(file_info.st_mode >> 6));
+
+        int stats_fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (stats_fd == -1) {
+            perror("Eroare la deschiderea fisierului de statistici");
+            exit(EXIT_FAILURE);
+        }
+
+        if (write(stats_fd, statistics, strlen(statistics)) == -1) {
+            perror("Eroare la scrierea in fisierul de statistici");
+            close(stats_fd);
+            exit(EXIT_FAILURE);
+        }
+
+        close(stats_fd);
+    }
+}
+
+void process_directory(const char *dirname, const char *output_file) {
+    DIR *dir = opendir(dirname);
+    if (dir == NULL) {
+        perror("Eroare la deschiderea directorului");
+        exit(EXIT_FAILURE);
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        process_directory_entry(dirname, entry->d_name, output_file);
+    }
+
+    closedir(dir);
+}
+
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <director_intrare>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    char output_file[] = "statistica.txt";
+
+    process_directory(argv[1], output_file);
 
     return 0;
 }
