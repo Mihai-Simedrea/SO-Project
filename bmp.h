@@ -9,6 +9,7 @@
 #define BMP_HEADER_SIZE 54
 #define DIB_HEADER_SIZE 40
 
+#pragma pack(push, 1)
 typedef struct {
     uint16_t type;              // Magic identifier: 0x4d42
     uint32_t size;              // File size in bytes
@@ -32,7 +33,7 @@ typedef struct {
     BMPHeader header;
     uint8_t* data;
 } BMPImage;
-
+#pragma pack(pop)
 
 BMPHeader read_bmp_header(int _Fd);  // > I'm really curious if I can set this bad boy to 'private' somehow. ca nu prea e okay - pot sa accesez tot header-ul din main
 int32_t read_bmp_height(int _Fd);
@@ -49,6 +50,7 @@ void print_bmp_header(BMPHeader header);
  * @return <placeholder>.
  */
 BMPHeader read_bmp_header(int _Fd) {
+    lseek(_Fd, 0, SEEK_SET);
     BMPHeader header;
 
     if (read(_Fd, &header, sizeof(header)) == -1) {
@@ -56,7 +58,6 @@ BMPHeader read_bmp_header(int _Fd) {
         close(_Fd);
         exit(EXIT_FAILURE);
     }
-    print_bmp_header(header);
     return header;
 }
 

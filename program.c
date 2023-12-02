@@ -34,6 +34,9 @@ int main(int argc, char **argv) {
     }
 
     int32_t height = read_bmp_height(file_descriptor);
+    int32_t width = read_bmp_width(file_descriptor);
+    printf("%d %d", height, width);
+    
     close(file_descriptor);
     return 0;
 }
