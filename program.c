@@ -17,6 +17,7 @@ const char *OPEN_FILE_ERROR = "The file can't be opened\n";
 const char *CANT_READ_FROM_FILE = "Can't get the data about the file.\n";
 const char *CANT_WRITE_TO_FILE = "Can't write the data to the file.\n";
 const char *CANT_OPEN_DIRECTORY = "Can't open the directory\n";
+const char *FORK_OPERATION_ERROR = "Fork operation error\n";
 
 
 int main(int argc, char **argv) {

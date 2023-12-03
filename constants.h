@@ -9,3 +9,4 @@ extern const char *OPEN_FILE_ERROR;
 extern const char *CANT_READ_FROM_FILE;
 extern const char *CANT_WRITE_TO_FILE;
 extern const char *CANT_OPEN_DIRECTORY;
+extern const char *FORK_OPERATION_ERROR;
