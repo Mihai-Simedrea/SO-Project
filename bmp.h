@@ -37,10 +37,10 @@ typedef struct {
 } BMPImage;
 #pragma pack(pop)
 
-BMPHeader read_bmp_header(int _Fd);  // > I'm really curious if I can set this bad boy to 'private' somehow. ca nu prea e okay - pot sa accesez tot header-ul din main
 int32_t read_bmp_height(int _Fd);
 int32_t read_bmp_width(int _Fd);
-void print_bmp_header(BMPHeader header);
+void __print_bmp_header(BMPHeader header);
+BMPHeader __read_bmp_header(int _Fd);  // > I'm really curious if I can set this bad boy to 'private' somehow. ca nu prea e okay - pot sa accesez tot header-ul din main
 
 
 
@@ -51,7 +51,33 @@ void print_bmp_header(BMPHeader header);
  * @param <placeholder>.
  * @return <placeholder>.
  */
-BMPHeader read_bmp_header(int _Fd) {
+int32_t read_bmp_height(int _Fd) {
+    BMPHeader header;
+    header = __read_bmp_header(_Fd);
+    return header.height_px;
+}
+
+
+/**
+ * <placeholder>.
+ * 
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+int32_t read_bmp_width(int _Fd) {
+    BMPHeader header;
+    header = __read_bmp_header(_Fd);
+    return header.width_px;
+}
+
+
+/**
+ * <placeholder>.
+ * 
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+BMPHeader __read_bmp_header(int _Fd) {
     lseek(_Fd, 0, SEEK_SET);
     BMPHeader header;
 
@@ -70,33 +96,7 @@ BMPHeader read_bmp_header(int _Fd) {
  * @param <placeholder>.
  * @return <placeholder>.
  */
-int32_t read_bmp_height(int _Fd) {
-    BMPHeader header;
-    header = read_bmp_header(_Fd);
-    return header.height_px;
-}
-
-
-/**
- * <placeholder>.
- * 
- * @param <placeholder>.
- * @return <placeholder>.
- */
-int32_t read_bmp_width(int _Fd) {
-    BMPHeader header;
-    header = read_bmp_header(_Fd);
-    return header.width_px;
-}
-
-
-/**
- * <placeholder>.
- * 
- * @param <placeholder>.
- * @return <placeholder>.
- */
-void print_bmp_header(BMPHeader header) {
+void __print_bmp_header(BMPHeader header) {
     printf("Type: 0x%X\n", header.type);
     printf("Size: %u bytes\n", header.size);
     printf("Reserved1: %u\n", header.reserved1);
