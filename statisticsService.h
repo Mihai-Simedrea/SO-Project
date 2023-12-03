@@ -20,6 +20,7 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
 char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
+void __handle_entry(char *_FullDirectoryPath, const char *_DirPath, const char *_OutputDirPath, struct dirent *_DirEntry, struct stat _FileStat, const char *_Stats);
 
 
 
@@ -54,38 +55,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
             continue;
         }
 
-        snprintf(full_directory_path, sizeof(full_directory_path), "%s/%s", _DirPath, dir_entry->d_name);
-
-        if (lstat(full_directory_path, &file_stat) == -1) {
-            perror(CANT_READ_FROM_FILE);
-            exit(EXIT_FAILURE);
-        }
-
-        if (S_ISREG(file_stat.st_mode)) {
-            if (has_ok_file_extension(full_directory_path, ".bmp")) {
-                statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
-            } else {
-                statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
-            }
-        } else if (S_ISDIR(file_stat.st_mode)) {
-            statistics = __construct_directory_statistics(file_stat, dir_entry->d_name);
-        } else if (S_ISLNK(file_stat.st_mode)) {
-            statistics = __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
-        } else {
-            printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
-        }
-
-        char statistics_file[500]; // > remove magic number
-        snprintf(statistics_file, sizeof(statistics_file), "%s/%s_statistics.txt", _OutputDirPath, dir_entry->d_name); // it shows the extension in `d_name`, remove it later
-
-        int stats_fd = open(statistics_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-        if (stats_fd == -1) {
-            perror(OPEN_FILE_ERROR);
-            exit(EXIT_FAILURE);
-        }
-
-        __write_into_statistics_file(stats_fd, statistics);
-        close(stats_fd);
+        __handle_entry(full_directory_path, _DirPath, _OutputDirPath, dir_entry, file_stat, statistics);
     }
 }
 
@@ -258,4 +228,46 @@ void __write_into_statistics_file(int _StatsFd, const char *_Statistics) {
         close(_StatsFd);
         exit(EXIT_FAILURE);
     }
+}
+
+
+/**
+ * <placeholder>.
+ *
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+void __handle_entry(char *_FullDirectoryPath, const char *_DirPath, const char *_OutputDirPath, struct dirent *_DirEntry, struct stat _FileStat, const char *_Stats) {
+    snprintf(_FullDirectoryPath, 1000, "%s/%s", _DirPath, _DirEntry->d_name); // > remove magic number
+
+    if (lstat(_FullDirectoryPath, &_FileStat) == -1) {
+        perror(CANT_READ_FROM_FILE);
+        exit(EXIT_FAILURE);
+    }
+
+    if (S_ISREG(_FileStat.st_mode)) {
+        if (has_ok_file_extension(_FullDirectoryPath, ".bmp")) {
+            _Stats = __construct_bmp_image_statistics(_FileStat, _DirEntry->d_name, _FullDirectoryPath);
+        } else {
+            _Stats = __construct_regular_file_statistics(_FileStat, _DirEntry->d_name);
+        }
+    } else if (S_ISDIR(_FileStat.st_mode)) {
+        _Stats = __construct_directory_statistics(_FileStat, _DirEntry->d_name);
+    } else if (S_ISLNK(_FileStat.st_mode)) {
+        _Stats = __construct_symbolic_link_statistics(_FileStat, _DirEntry->d_name, _FullDirectoryPath);
+    } else {
+        printf("%s is of unknown type.\n", _DirEntry->d_name);  // > Maybe throw error or something
+    }
+
+    char statistics_file[500]; // > remove magic number
+    snprintf(statistics_file, sizeof(statistics_file), "%s/%s_statistics.txt", _OutputDirPath, _DirEntry->d_name); // > it shows the extension in `d_name`, remove it later
+
+    int stats_fd = open(statistics_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (stats_fd == -1) {
+        perror(OPEN_FILE_ERROR);
+        exit(EXIT_FAILURE);
+    }
+
+    __write_into_statistics_file(stats_fd, _Stats);
+    close(stats_fd);
 }
