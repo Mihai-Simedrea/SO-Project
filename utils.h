@@ -8,7 +8,7 @@
 
 uint8_t sprint(const char *_Message);
 bool has_ok_file_extension(const char *_FileName, const char *_ExtensionName);
-
+char *get_permissions(mode_t mode);
 
 
 
