@@ -13,8 +13,8 @@
 #include "bmp.h"
 
 
-void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPath);
-void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, int _StatsFd);
+void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath);
+void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath);
 char *__construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName);
 char *__construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName);
 char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
@@ -30,17 +30,8 @@ void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPath) {
-
-    int stats_fd = open(_StatsFile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    if (stats_fd == -1) {
-        perror(OPEN_FILE_ERROR);
-        exit(EXIT_FAILURE);
-    }
-
-    __check_file_types_from_directory(_Dir, _DirPath, stats_fd);
-
-    close(stats_fd);
+void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath) {
+    __check_file_types_from_directory(_Dir, _DirPath, _OutputDirPath);
 }
 
 
@@ -52,7 +43,7 @@ void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPa
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, int _StatsFd) {
+void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath) {
     struct dirent *dir_entry;
     struct stat file_stat;
     char full_directory_path[1000];  // > remove magic number
@@ -84,7 +75,17 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, int _Sta
             printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
         }
 
-        __write_into_statistics_file(_StatsFd, statistics);
+        char statistics_file[500]; // > remove magic number
+        snprintf(statistics_file, sizeof(statistics_file), "%s/%s_statistics.txt", _OutputDirPath, dir_entry->d_name); // it shows the extension in `d_name`, remove it later
+
+        int stats_fd = open(statistics_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (stats_fd == -1) {
+            perror(OPEN_FILE_ERROR);
+            exit(EXIT_FAILURE);
+        }
+
+        __write_into_statistics_file(stats_fd, statistics);
+        close(stats_fd);
     }
 }
 

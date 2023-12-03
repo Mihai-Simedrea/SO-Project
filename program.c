@@ -10,7 +10,7 @@
 #include "statisticsService.h"
 
 
-const char *USAGE_ERROR = "Usage ./program <director_intrare>\n"; // > hmm, idk daca sa folosesc extern sau nu
+const char *USAGE_ERROR = "Usage ./program <director_intrare> <director_iesire>\n"; // > hmm, idk daca sa folosesc extern sau nu
 const char *MEMORY_ALLOCATION_ERROR = "Out of memory\n";
 const char *NO_EXTENSION_FOUND = "Extension Error\n";
 const char *OPEN_FILE_ERROR = "The file can't be opened\n";
@@ -20,7 +20,7 @@ const char *CANT_OPEN_DIRECTORY = "Can't open the directory\n";
 
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
+    if (argc != 3) {
         if (sprint(USAGE_ERROR) == ERROR_SPRINT) {
             perror(MEMORY_ALLOCATION_ERROR);
         }
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         perror(CANT_OPEN_DIRECTORY);
     }
 
-    write_statistics_file(current_dir, "statistica.txt", argv[1]);
+    write_statistics_file(current_dir, argv[1], argv[2]);
     
     closedir(current_dir);
     return 0;

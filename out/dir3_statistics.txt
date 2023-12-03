@@ -1,0 +1,6 @@
+nume director: dir3
+identificatorul utilizatorului: 1000
+drepturi de acces user: RWXR-XR-X
+drepturi de acces grup: RWXR-XR-X
+drepturi de acces altii: RWXR-XR-X
+
