@@ -32,10 +32,8 @@ int main(int argc, char **argv) {
         perror(CANT_OPEN_DIRECTORY);
     }
 
-    // write_statistics_file(file_descriptor, argv[1]);
     write_statistics_file(current_dir, "statistica.txt", argv[1]);
     
-    // close(file_descriptor);
     closedir(current_dir);
     return 0;
 }
