@@ -14,11 +14,12 @@
 
 
 void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPath);
-void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath);
-void __construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName);
-void __construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName);
-void __construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
-void __construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
+void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, int _StatsFd);
+char *__construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName);
+char *__construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName);
+char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
+char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
+void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
 
 
 
@@ -30,8 +31,6 @@ void __construct_symbolic_link_statistics(struct stat _FileStat, const char *_En
  * @return <placeholder>.
  */
 void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPath) {
-    // char *statistics = __construct_statistics_file();
-    __check_file_types_from_directory(_Dir, _DirPath);
 
     int stats_fd = open(_StatsFile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (stats_fd == -1) {
@@ -39,11 +38,9 @@ void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPa
         exit(EXIT_FAILURE);
     }
 
-    // if (write(stats_fd, statistics, strlen(statistics)) == -1) {
-    //     perror(CANT_WRITE_TO_FILE);
-    //     close(stats_fd);
-    //     exit(EXIT_FAILURE);
-    // }
+    __check_file_types_from_directory(_Dir, _DirPath, stats_fd);
+
+    close(stats_fd);
 }
 
 
@@ -55,10 +52,11 @@ void write_statistics_file(DIR *_Dir, const char *_StatsFile, const char *_DirPa
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath) {
+void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, int _StatsFd) {
     struct dirent *dir_entry;
     struct stat file_stat;
     char full_directory_path[1000];  // > remove magic number
+    char *statistics = (char*)malloc(400 * sizeof(char));
 
     while ((dir_entry = readdir(_Dir)) != NULL) {
         if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0) {
@@ -74,17 +72,19 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath) {
 
         if (S_ISREG(file_stat.st_mode)) {
             if (has_ok_file_extension(full_directory_path, ".bmp")) {
-                __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
+                statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
             } else {
-                __construct_regular_file_statistics(file_stat, dir_entry->d_name);
+                statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
             }
         } else if (S_ISDIR(file_stat.st_mode)) {
-            __construct_directory_statistics(file_stat, dir_entry->d_name);
+            statistics = __construct_directory_statistics(file_stat, dir_entry->d_name);
         } else if (S_ISLNK(file_stat.st_mode)) {
-            __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
+            statistics = __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
         } else {
             printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
         }
+
+        __write_into_statistics_file(_StatsFd, statistics);
     }
 }
 
@@ -95,7 +95,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath) {
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName) {
+char *__construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName) {
     char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
@@ -107,14 +107,14 @@ void __construct_directory_statistics(struct stat _FileStat, const char *_EntryF
              "identificatorul utilizatorului: %d\n"
              "drepturi de acces user: %s\n"
              "drepturi de acces grup: %s\n"
-             "drepturi de acces altii: %s\n",
+             "drepturi de acces altii: %s\n\n",
              _EntryFileName,
              _FileStat.st_uid,
              get_permissions(_FileStat.st_mode),
              get_permissions(_FileStat.st_mode >> 3),
              get_permissions(_FileStat.st_mode >> 6));
 
-    printf("%s\n", statistics);
+    return statistics;
 }
 
 
@@ -124,7 +124,7 @@ void __construct_directory_statistics(struct stat _FileStat, const char *_EntryF
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName) {
+char *__construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName) {
     char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
@@ -142,7 +142,7 @@ void __construct_regular_file_statistics(struct stat _FileStat, const char *_Ent
              "contorul de legaturi: %ld\n"
              "drepturi de acces user: %s\n"
              "drepturi de acces grup: %s\n"
-             "drepturi de acces altii: %s\n",
+             "drepturi de acces altii: %s\n\n",
              _EntryFileName,
              _FileStat.st_size,
              _FileStat.st_uid,
@@ -152,7 +152,7 @@ void __construct_regular_file_statistics(struct stat _FileStat, const char *_Ent
              get_permissions(_FileStat.st_mode >> 3),
              get_permissions(_FileStat.st_mode >> 6));
 
-    printf("%s\n", statistics);
+    return statistics;
 }
 
 
@@ -162,7 +162,7 @@ void __construct_regular_file_statistics(struct stat _FileStat, const char *_Ent
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
+char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
     char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
@@ -192,7 +192,7 @@ void __construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryF
              "contorul de legaturi: %ld\n"
              "drepturi de acces user: %s\n"
              "drepturi de acces grup: %s\n"
-             "drepturi de acces altii: %s\n",
+             "drepturi de acces altii: %s\n\n",
              _EntryFileName,
              height,
              width,
@@ -204,7 +204,7 @@ void __construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryF
              get_permissions(_FileStat.st_mode >> 3),
              get_permissions(_FileStat.st_mode >> 6));
 
-    printf("%s\n", statistics);
+    return statistics;
 }
 
 
@@ -214,7 +214,7 @@ void __construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryF
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
+char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
     char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
@@ -233,7 +233,7 @@ void __construct_symbolic_link_statistics(struct stat _FileStat, const char *_En
              "dimensiune fisier: %ld octeti\n"
              "drepturi de acces user: %s\n"
              "drepturi de acces grup: %s\n"
-             "drepturi de acces altii: %s\n",
+             "drepturi de acces altii: %s\n\n",
              _EntryFileName,
              _FileStat.st_size,
              target_stat_file.st_size,
@@ -241,5 +241,20 @@ void __construct_symbolic_link_statistics(struct stat _FileStat, const char *_En
              get_permissions(_FileStat.st_mode >> 3),
              get_permissions(_FileStat.st_mode >> 6));
 
-    printf("%s\n", statistics);
+    return statistics;
+}
+
+
+/**
+ * <placeholder>.
+ *
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+void __write_into_statistics_file(int _StatsFd, const char *_Statistics) {
+    if (write(_StatsFd, _Statistics, strlen(_Statistics)) == -1) {
+        perror(CANT_WRITE_TO_FILE);
+        close(_StatsFd);
+        exit(EXIT_FAILURE);
+    }
 }

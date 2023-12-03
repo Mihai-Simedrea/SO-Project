@@ -1,0 +1,50 @@
+nume director: dir3
+identificatorul utilizatorului: 1000
+drepturi de acces user: RWXR-XR-X
+drepturi de acces grup: RWXR-XR-X
+drepturi de acces altii: RWXR-XR-X
+
+nume fisier: a_symb.txt
+dimensiune: 5 octeti
+dimensiune fisier: 13 octeti
+drepturi de acces user: RWXRWXRWX
+drepturi de acces grup: RWXRWXRWX
+drepturi de acces altii: RWXRWXRWX
+
+nume director: dir2
+identificatorul utilizatorului: 1000
+drepturi de acces user: RWXR-XR-X
+drepturi de acces grup: RWXR-XR-X
+drepturi de acces altii: RWXR-XR-X
+
+nume fisier: a.txt
+dimensiune: 13 octeti
+identificatorul utilizatorului: 1000
+timpul ultimei modificari: 03.12.2023
+contorul de legaturi: 1
+drepturi de acces user: RW-R--R--
+drepturi de acces grup: RW-R--R--
+drepturi de acces altii: RW-R--R--
+
+nume fisier: imagine.bmp
+inaltime: 1280
+lungime: 1920
+dimensiune: 7372938 octeti
+identificatorul utilizatorului: 1000
+timpul ultimei modificari: 06.11.2023
+contorul de legaturi: 1
+drepturi de acces user: RW-R--R--
+drepturi de acces grup: RW-R--R--
+drepturi de acces altii: RW-R--R--
+
+nume fisier: imaginecopy.bmp
+inaltime: 1280
+lungime: 1920
+dimensiune: 7372938 octeti
+identificatorul utilizatorului: 1000
+timpul ultimei modificari: 06.11.2023
+contorul de legaturi: 1
+drepturi de acces user: RW-R--R--
+drepturi de acces grup: RW-R--R--
+drepturi de acces altii: RW-R--R--
+
