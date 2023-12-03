@@ -20,7 +20,7 @@ bool has_ok_file_extension(const char *_FileName, const char *_ExtensionName);
  */
 uint8_t sprint(const char *_Message) {
     size_t length = strlen(_Message);
-    char *str = (char*)malloc(length + 1);
+    char *str = (char*)malloc((length + 1) * sizeof(char));
     if (str == NULL) {
         errno = ENOMEM;
         return ERROR_SPRINT;
@@ -52,4 +52,26 @@ bool has_ok_file_extension(const char *_FileName, const char *_ExtensionName) {
     }
 
     return true;
+}
+
+
+/**
+ * <placeholder>.
+ * 
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+char *get_permissions(mode_t mode) {
+    static char permissions[10];
+    snprintf(permissions, sizeof(permissions), "%c%c%c%c%c%c%c%c%c",
+        (mode & S_IRUSR) ? 'R' : '-',
+        (mode & S_IWUSR) ? 'W' : '-',
+        (mode & S_IXUSR) ? 'X' : '-',
+        (mode & S_IRGRP) ? 'R' : '-',
+        (mode & S_IWGRP) ? 'W' : '-',
+        (mode & S_IXGRP) ? 'X' : '-',
+        (mode & S_IROTH) ? 'R' : '-',
+        (mode & S_IWOTH) ? 'W' : '-',
+        (mode & S_IXOTH) ? 'X' : '-');
+    return permissions;
 }

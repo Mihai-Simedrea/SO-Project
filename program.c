@@ -6,12 +6,15 @@
 #include "bmp.h"
 #include "constants.h"
 #include "utils.h"
+#include "statisticsService.h"
 
 
 const char *USAGE_ERROR = "Usage ./program <fisier_intrare>\n"; // > hmm, idk daca sa folosesc extern sau nu
 const char *MEMORY_ALLOCATION_ERROR = "Out of memory\n";
 const char *NO_EXTENSION_FOUND = "Extension Error\n";
 const char *OPEN_FILE_ERROR = "The file can't be opened\n";
+const char *CANT_READ_FROM_FILE = "Can't get the data about the file.\n";
+const char *CANT_WRITE_TO_FILE = "Can't write the data to the file.\n";
 
 
 int main(int argc, char **argv) {
@@ -33,9 +36,8 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    int32_t height = read_bmp_height(file_descriptor);
-    int32_t width = read_bmp_width(file_descriptor);
-    printf("%d %d", height, width);
+    const char *output_file_path = "statistica.txt";
+    write_statistics_file(file_descriptor, argv[1], output_file_path);
     
     close(file_descriptor);
     return 0;

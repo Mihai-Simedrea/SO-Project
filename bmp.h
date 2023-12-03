@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "constants.h"
+
 #define BMP_HEADER_SIZE 54
 #define DIB_HEADER_SIZE 40
 
@@ -54,7 +56,7 @@ BMPHeader read_bmp_header(int _Fd) {
     BMPHeader header;
 
     if (read(_Fd, &header, sizeof(header)) == -1) {
-        perror("Eroare la citirea header-ului de imagine");  // > asta trb modificata, dar imi e lene acum
+        perror(CANT_READ_FROM_FILE);
         close(_Fd);
         exit(EXIT_FAILURE);
     }
