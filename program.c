@@ -1,3 +1,5 @@
+// > sa nu uit de free la memorie ms
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>

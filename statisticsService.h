@@ -1,3 +1,5 @@
+// > sa nu uit de free la memorie ms
+
 #include <stdio.h>
 #include <errno.h>
 #include <stdint.h>
@@ -22,7 +24,6 @@ char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_Entry
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
 void __handle_entry(char *_FullDirectoryPath, const char *_DirPath, const char *_OutputDirPath, struct dirent *_DirEntry, struct stat _FileStat, const char *_Stats, int lines, int pipefd[]);
-
 
 
 
@@ -276,9 +277,12 @@ void __handle_entry(char *_FullDirectoryPath, const char *_DirPath, const char *
         exit(EXIT_FAILURE);
     }
 
+    // fiecare if un fork
+
     if (S_ISREG(_FileStat.st_mode)) {
         if (has_ok_file_extension(_FullDirectoryPath, ".bmp")) {
             _Stats = __construct_bmp_image_statistics(_FileStat, _DirEntry->d_name, _FullDirectoryPath);
+            __convert_to_grayscale(_FullDirectoryPath); // > should I start another process from here?
         } else {
             _Stats = __construct_regular_file_statistics(_FileStat, _DirEntry->d_name);
         }

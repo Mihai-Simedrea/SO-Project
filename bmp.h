@@ -1,3 +1,5 @@
+// > sa nu uit de free la memorie ms
+
 #ifndef _BMP_H_  // prevent recursive inclusion
 #define _BMP_H_
 
@@ -33,7 +35,7 @@ typedef struct {
 
 typedef struct {
     BMPHeader header;
-    uint8_t* data;
+    uint8_t *data;
 } BMPImage;
 #pragma pack(pop)
 
@@ -41,7 +43,7 @@ int32_t read_bmp_height(int _Fd);
 int32_t read_bmp_width(int _Fd);
 void __print_bmp_header(BMPHeader header);
 BMPHeader __read_bmp_header(int _Fd);  // > I'm really curious if I can set this bad boy to 'private' somehow. ca nu prea e okay - pot sa accesez tot header-ul din main
-
+void __convert_to_grayscale(const char *_FullDirectoryPath);
 
 
 
@@ -115,4 +117,58 @@ void __print_bmp_header(BMPHeader header) {
     printf("Important Colors: %u\n", header.important_colors);
 }
 
+
+/**
+ * <placeholder>.
+ *
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+void __convert_to_grayscale(const char *_FullDirectoryPath) {
+    int file_descriptor = open(_FullDirectoryPath, O_RDWR);
+    if (file_descriptor == -1) {
+        perror(OPEN_FILE_ERROR);
+        exit(EXIT_FAILURE);
+    }
+
+    BMPImage image;
+
+    int height = read_bmp_height(file_descriptor);
+    int width = read_bmp_width(file_descriptor);
+
+    size_t image_size = height * width * 3;
+
+    image.data = (uint8_t*)malloc(image_size);
+    if (image.data == NULL) {
+        perror(MEMORY_ALLOCATION_ERROR);
+        close(file_descriptor);
+        exit(EXIT_FAILURE);
+    }
+
+    lseek(file_descriptor, 54, SEEK_SET);
+
+    if (read(file_descriptor, image.data, image_size) == -1) {
+        perror(CANT_READ_FROM_FILE);
+        free(image.data);
+        close(file_descriptor);
+        exit(EXIT_FAILURE);
+    }
+
+    for (uint32_t index = 0; index < image_size; index += 3) {
+        uint8_t gray_value = (uint8_t)(0.299 * image.data[index] + 0.587 * image.data[index + 1] + 0.114 * image.data[index + 2]);
+        image.data[index] = image.data[index + 1] = image.data[index + 2] = gray_value;
+    }
+
+    lseek(file_descriptor, 54, SEEK_SET);
+
+    if (write(file_descriptor, image.data, image_size) == -1) {
+        perror(CANT_WRITE_TO_FILE);
+        free(image.data);
+        close(file_descriptor);
+        exit(EXIT_FAILURE);
+    }
+
+    free(image.data);
+    close(file_descriptor);
+}
 #endif  /* bmp.h */
