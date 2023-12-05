@@ -1,7 +1,0 @@
-nume fisier: a_symb.txt
-dimensiune: 5 octeti
-dimensiune fisier: 13 octeti
-drepturi de acces user: RWXRWXRWX
-drepturi de acces grup: RWXRWXRWX
-drepturi de acces altii: RWXRWXRWX
-
