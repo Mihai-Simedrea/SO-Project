@@ -20,10 +20,10 @@ void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputD
 void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath);
 char *__construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName);
 char *__construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName);
-char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
+char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath, int _PipeFds[][2], uint32_t _ChildCount);
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
-void wait_all_processes(pid_t child_pids[], uint32_t child_count);
+void wait_all_processes(pid_t child_pids[], uint32_t child_count, int pipe_fds[][2]);
 
 
 
@@ -54,6 +54,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
     pid_t pid;
     pid_t child_pids[1000];
     uint32_t child_count = 0;
+    int pipe_fds[1000][2];
 
     while ((dir_entry = readdir(_Dir)) != NULL) {
         if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0) {
@@ -76,12 +77,17 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
             exit(EXIT_FAILURE);
         }
 
+        if (pipe(pipe_fds[child_count]) == -1) {
+            perror("Pipe failed"); // > replace with defined error code
+            exit(EXIT_FAILURE);
+        }
+
         if (S_ISREG(file_stat.st_mode)) {
             pid = fork();
 
             if (pid == 0) {
                 if (has_ok_file_extension(full_directory_path, ".bmp")) {
-                    statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
+                    statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path, pipe_fds, child_count);
                 } else {
                     statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
                 }
@@ -135,7 +141,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
         close(stats_fd);
     }
 
-    wait_all_processes(child_pids, child_count);
+    wait_all_processes(child_pids, child_count, pipe_fds);
 }
 
 
@@ -145,12 +151,19 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void wait_all_processes(pid_t child_pids[], uint32_t child_count) {
+void wait_all_processes(pid_t child_pids[], uint32_t child_count, int pipe_fds[][2]) { // > refactor param namings
     int status;
     for (uint32_t index = 0; index < child_count; ++index) {
-        waitpid(child_pids[index], &status, 0); // should something be checked here?
+        waitpid(child_pids[index], &status, 0); // > should something be checked here?
         if (WIFEXITED(status)) {
             printf("pid = %d, status = %d\n", child_pids[index], WEXITSTATUS(status));
+
+            close(pipe_fds[index][1]);
+            int lines_written;
+            read(pipe_fds[index][0], &lines_written, sizeof(lines_written));
+            printf("Child %d: Lines written = %d\n", index + 1, lines_written);
+
+            close(pipe_fds[index][0]);
         }
     }
 }
@@ -229,7 +242,9 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
  * @param <placeholder>.
  * @return <placeholder>.
  */
-char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
+char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath, int _PipeFds[][2], uint32_t _ChildCount) {
+    uint32_t lines_written = 123;
+
     char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
@@ -270,6 +285,10 @@ char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_Entry
              get_permissions(_FileStat.st_mode),
              get_permissions(_FileStat.st_mode >> 3),
              get_permissions(_FileStat.st_mode >> 6));
+
+    close(_PipeFds[_ChildCount][0]);
+    write(_PipeFds[_ChildCount][1], &lines_written, sizeof(lines_written));
+    close(_PipeFds[_ChildCount][1]);
 
     return statistics;
 }
