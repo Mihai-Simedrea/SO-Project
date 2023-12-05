@@ -23,6 +23,7 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
 char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
+void wait_all_processes(pid_t child_pids[], uint32_t child_count);
 
 
 
@@ -50,17 +51,13 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
     struct stat file_stat;
     char full_directory_path[1000];  // > remove magic number
     char *statistics = (char*)malloc(400 * sizeof(char));
+    pid_t pid;
+    pid_t child_pids[1000];
+    uint32_t child_count = 0;
 
     while ((dir_entry = readdir(_Dir)) != NULL) {
         if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0) {
             continue;
-        }
-
-        int pipefd[2];
-
-        if (pipe(pipefd) == -1) {
-            perror("Pipe failed"); // > replace with defined error code
-            exit(EXIT_FAILURE);
         }
 
         snprintf(full_directory_path, 1000, "%s/%s", _DirPath, dir_entry->d_name); // > remove magic number
@@ -68,23 +65,6 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
         if (lstat(full_directory_path, &file_stat) == -1) {
             perror(CANT_READ_FROM_FILE);
             exit(EXIT_FAILURE);
-        }
-
-        // fiecare if un fork
-
-        if (S_ISREG(file_stat.st_mode)) {
-            if (has_ok_file_extension(full_directory_path, ".bmp")) {
-                statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
-                __convert_to_grayscale(full_directory_path); // > should I start another process from here?
-            } else {
-                statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
-            }
-        } else if (S_ISDIR(file_stat.st_mode)) {
-            statistics = __construct_directory_statistics(file_stat, dir_entry->d_name);
-        } else if (S_ISLNK(file_stat.st_mode)) {
-            statistics = __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
-        } else {
-            printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
         }
 
         char statistics_file[500]; // > remove magic number
@@ -96,8 +76,82 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
             exit(EXIT_FAILURE);
         }
 
-        __write_into_statistics_file(stats_fd, statistics);
+        if (S_ISREG(file_stat.st_mode)) {
+            pid = fork();
+
+            if (pid == 0) {
+                if (has_ok_file_extension(full_directory_path, ".bmp")) {
+                    statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
+                } else {
+                    statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
+                }
+                __write_into_statistics_file(stats_fd, statistics);
+                exit(0);
+            } else if (pid < 0) {
+                perror("fork error");
+                exit(EXIT_FAILURE);
+            } else {
+                if (has_ok_file_extension(full_directory_path, ".bmp")) {
+                    pid_t grayscale_pid = fork();
+                    child_pids[child_count++] = grayscale_pid;
+
+                    if (grayscale_pid == 0) {
+                        __convert_to_grayscale(full_directory_path);
+                        exit(0);
+                    } else if (grayscale_pid < 0) {
+                        perror("fork error");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+            }
+            
+        } else if (S_ISDIR(file_stat.st_mode)) {
+            pid = fork();
+
+            if (pid == 0) {
+                statistics = __construct_directory_statistics(file_stat, dir_entry->d_name);
+                __write_into_statistics_file(stats_fd, statistics);
+                exit(0);
+            } else if (pid < 0) {
+                perror("fork error");
+                exit(EXIT_FAILURE);
+            }
+        } else if (S_ISLNK(file_stat.st_mode)) {
+            pid = fork();
+
+            if (pid == 0) {
+                statistics = __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
+                __write_into_statistics_file(stats_fd, statistics);
+                exit(0);
+            } else if (pid < 0) {
+                perror("fork error");
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
+        }
+
+        child_pids[child_count++] = pid;
         close(stats_fd);
+    }
+
+    wait_all_processes(child_pids, child_count);
+}
+
+
+/**
+ * <placeholder>.
+ *
+ * @param <placeholder>.
+ * @return <placeholder>.
+ */
+void wait_all_processes(pid_t child_pids[], uint32_t child_count) {
+    int status;
+    for (uint32_t index = 0; index < child_count; ++index) {
+        waitpid(child_pids[index], &status, 0); // should something be checked here?
+        if (WIFEXITED(status)) {
+            printf("pid = %d, status = %d\n", child_pids[index], WEXITSTATUS(status));
+        }
     }
 }
 
