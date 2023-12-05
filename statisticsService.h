@@ -23,7 +23,6 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
 char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
-void __handle_entry(char *_FullDirectoryPath, const char *_DirPath, const char *_OutputDirPath, struct dirent *_DirEntry, struct stat _FileStat, const char *_Stats, int lines, int pipefd[]);
 
 
 
@@ -74,7 +73,68 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
         }
 
         if (pid == 0) {
-            __handle_entry(full_directory_path, _DirPath, _OutputDirPath, dir_entry, file_stat, statistics, lines, pipefd);
+            snprintf(full_directory_path, 1000, "%s/%s", _DirPath, dir_entry->d_name); // > remove magic number
+
+            if (lstat(full_directory_path, &file_stat) == -1) {
+                perror(CANT_READ_FROM_FILE);
+                exit(EXIT_FAILURE);
+            }
+
+            // fiecare if un fork
+
+            if (S_ISREG(file_stat.st_mode)) {
+                if (has_ok_file_extension(full_directory_path, ".bmp")) {
+                    statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
+                    __convert_to_grayscale(full_directory_path); // > should I start another process from here?
+                } else {
+                    statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
+                }
+            } else if (S_ISDIR(file_stat.st_mode)) {
+                statistics = __construct_directory_statistics(file_stat, dir_entry->d_name);
+            } else if (S_ISLNK(file_stat.st_mode)) {
+                statistics = __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
+            } else {
+                printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
+            }
+
+            char statistics_file[500]; // > remove magic number
+            snprintf(statistics_file, sizeof(statistics_file), "%s/%s_statistics.txt", _OutputDirPath, dir_entry->d_name); // > it shows the extension in `d_name`, remove it later
+
+            int stats_fd = open(statistics_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+            if (stats_fd == -1) {
+                perror(OPEN_FILE_ERROR);
+                exit(EXIT_FAILURE);
+            }
+
+            __write_into_statistics_file(stats_fd, statistics);
+            close(stats_fd);
+
+            // > Maybe the below code could be extracted into a function
+            char system_command[600];  // > remove magic number
+            snprintf(system_command, sizeof(system_command), "./script.sh %s > statistics.txt", statistics_file);    
+            system(system_command);
+
+            int system_fd = open("statistics.txt", O_RDONLY);
+            if (system_fd == -1) {
+                perror(OPEN_FILE_ERROR);
+                exit(EXIT_FAILURE);
+            }
+
+            char read_lines[1000]; // > remove magic number
+            ssize_t bytes_read = read(system_fd, read_lines, sizeof(read_lines) - 1);
+            if (bytes_read == -1) {
+                perror(OPEN_FILE_ERROR); // > not sure about this perror
+                exit(EXIT_FAILURE);
+            }
+
+            read_lines[bytes_read] = '\0';
+
+            lines = atoi(read_lines);
+            close(pipefd[0]);
+            write(pipefd[1], &lines, sizeof(lines));
+            close(pipefd[1]);
+
+            close(system_fd);
             exit(0);
         }
 
@@ -260,76 +320,4 @@ void __write_into_statistics_file(int _StatsFd, const char *_Statistics) {
         close(_StatsFd);
         exit(EXIT_FAILURE);
     }
-}
-
-
-/**
- * <placeholder>.
- *
- * @param <placeholder>.
- * @return <placeholder>.
- */
-void __handle_entry(char *_FullDirectoryPath, const char *_DirPath, const char *_OutputDirPath, struct dirent *_DirEntry, struct stat _FileStat, const char *_Stats, int lines, int pipefd[]) {
-    snprintf(_FullDirectoryPath, 1000, "%s/%s", _DirPath, _DirEntry->d_name); // > remove magic number
-
-    if (lstat(_FullDirectoryPath, &_FileStat) == -1) {
-        perror(CANT_READ_FROM_FILE);
-        exit(EXIT_FAILURE);
-    }
-
-    // fiecare if un fork
-
-    if (S_ISREG(_FileStat.st_mode)) {
-        if (has_ok_file_extension(_FullDirectoryPath, ".bmp")) {
-            _Stats = __construct_bmp_image_statistics(_FileStat, _DirEntry->d_name, _FullDirectoryPath);
-            __convert_to_grayscale(_FullDirectoryPath); // > should I start another process from here?
-        } else {
-            _Stats = __construct_regular_file_statistics(_FileStat, _DirEntry->d_name);
-        }
-    } else if (S_ISDIR(_FileStat.st_mode)) {
-        _Stats = __construct_directory_statistics(_FileStat, _DirEntry->d_name);
-    } else if (S_ISLNK(_FileStat.st_mode)) {
-        _Stats = __construct_symbolic_link_statistics(_FileStat, _DirEntry->d_name, _FullDirectoryPath);
-    } else {
-        printf("%s is of unknown type.\n", _DirEntry->d_name);  // > Maybe throw error or something
-    }
-
-    char statistics_file[500]; // > remove magic number
-    snprintf(statistics_file, sizeof(statistics_file), "%s/%s_statistics.txt", _OutputDirPath, _DirEntry->d_name); // > it shows the extension in `d_name`, remove it later
-
-    int stats_fd = open(statistics_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    if (stats_fd == -1) {
-        perror(OPEN_FILE_ERROR);
-        exit(EXIT_FAILURE);
-    }
-
-    __write_into_statistics_file(stats_fd, _Stats);
-    close(stats_fd);
-
-    // > Maybe the below code could be extracted into a function
-    char system_command[600];  // > remove magic number
-    snprintf(system_command, sizeof(system_command), "./script.sh %s > statistics.txt", statistics_file);    
-    system(system_command);
-
-    int system_fd = open("statistics.txt", O_RDONLY);
-    if (system_fd == -1) {
-        perror(OPEN_FILE_ERROR);
-        exit(EXIT_FAILURE);
-    }
-
-    char read_lines[1000]; // > remove magic number
-    ssize_t bytes_read = read(system_fd, read_lines, sizeof(read_lines) - 1);
-    if (bytes_read == -1) {
-        perror(OPEN_FILE_ERROR); // > not sure about this perror
-        exit(EXIT_FAILURE);
-    }
-
-    read_lines[bytes_read] = '\0';
-
-    lines = atoi(read_lines);
-    close(pipefd[0]);
-    write(pipefd[1], &lines, sizeof(lines));
-    close(pipefd[1]);
-
-    close(system_fd);
 }
