@@ -20,9 +20,9 @@ void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputD
 void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath);
 char *__construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName);
 char *__construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName);
-char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath, int _PipeFds[][2], uint32_t _ChildCount);
+char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
-void __write_into_statistics_file(int _StatsFd, const char *_Statistics);
+void __write_into_statistics_file(int _StatsFd, const char *_Statistics, int _PipeFds[][2], uint32_t _ChildCount);
 void wait_all_processes(pid_t child_pids[], uint32_t child_count, int pipe_fds[][2]);
 
 
@@ -87,11 +87,11 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
 
             if (pid == 0) {
                 if (has_ok_file_extension(full_directory_path, ".bmp")) {
-                    statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path, pipe_fds, child_count);
+                    statistics = __construct_bmp_image_statistics(file_stat, dir_entry->d_name, full_directory_path);
                 } else {
                     statistics = __construct_regular_file_statistics(file_stat, dir_entry->d_name);
                 }
-                __write_into_statistics_file(stats_fd, statistics);
+                __write_into_statistics_file(stats_fd, statistics, pipe_fds, child_count);
                 exit(0);
             } else if (pid < 0) {
                 perror("fork error");
@@ -116,7 +116,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
 
             if (pid == 0) {
                 statistics = __construct_directory_statistics(file_stat, dir_entry->d_name);
-                __write_into_statistics_file(stats_fd, statistics);
+                __write_into_statistics_file(stats_fd, statistics, pipe_fds, child_count);
                 exit(0);
             } else if (pid < 0) {
                 perror("fork error");
@@ -127,7 +127,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
 
             if (pid == 0) {
                 statistics = __construct_symbolic_link_statistics(file_stat, dir_entry->d_name, full_directory_path);
-                __write_into_statistics_file(stats_fd, statistics);
+                __write_into_statistics_file(stats_fd, statistics, pipe_fds, child_count);
                 exit(0);
             } else if (pid < 0) {
                 perror("fork error");
@@ -242,8 +242,7 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
  * @param <placeholder>.
  * @return <placeholder>.
  */
-char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath, int _PipeFds[][2], uint32_t _ChildCount) {
-    uint32_t lines_written = 123;
+char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
 
     char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
@@ -285,10 +284,6 @@ char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_Entry
              get_permissions(_FileStat.st_mode),
              get_permissions(_FileStat.st_mode >> 3),
              get_permissions(_FileStat.st_mode >> 6));
-
-    close(_PipeFds[_ChildCount][0]);
-    write(_PipeFds[_ChildCount][1], &lines_written, sizeof(lines_written));
-    close(_PipeFds[_ChildCount][1]);
 
     return statistics;
 }
@@ -337,10 +332,25 @@ char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_E
  * @param <placeholder>.
  * @return <placeholder>.
  */
-void __write_into_statistics_file(int _StatsFd, const char *_Statistics) {
+void __write_into_statistics_file(int _StatsFd, const char *_Statistics, int _PipeFds[][2], uint32_t _ChildCount) {
+    uint32_t lines_written = 0;
+
+    const char *ptr = _Statistics;
+    while (*ptr != '\0') {
+        if (*ptr == '\n') {
+            lines_written++;
+        }
+        ptr++;
+    }
+    lines_written -= 1;
+
     if (write(_StatsFd, _Statistics, strlen(_Statistics)) == -1) {
         perror(CANT_WRITE_TO_FILE);
         close(_StatsFd);
         exit(EXIT_FAILURE);
     }
+
+    close(_PipeFds[_ChildCount][0]);
+    write(_PipeFds[_ChildCount][1], &lines_written, sizeof(lines_written));
+    close(_PipeFds[_ChildCount][1]);
 }
