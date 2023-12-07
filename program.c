@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <ctype.h>
 
 #include "bmp.h"
 #include "constants.h"
@@ -12,7 +13,7 @@
 #include "statisticsService.h"
 
 
-const char *USAGE_ERROR = "Usage ./program <director_intrare> <director_iesire>\n"; // > hmm, idk daca sa folosesc extern sau nu
+const char *USAGE_ERROR = "Usage ./program <director_intrare> <director_iesire> <c>\n"; // > hmm, idk daca sa folosesc extern sau nu
 const char *MEMORY_ALLOCATION_ERROR = "Out of memory\n";
 const char *NO_EXTENSION_FOUND = "Extension Error\n";
 const char *OPEN_FILE_ERROR = "The file can't be opened\n";
@@ -23,10 +24,22 @@ const char *FORK_OPERATION_ERROR = "Fork operation error\n";
 
 
 int main(int argc, char **argv) {
-    if (argc != 3) {
+    if (argc != 4) {
         if (sprint(USAGE_ERROR) == ERROR_SPRINT) {
             perror(MEMORY_ALLOCATION_ERROR);
         }
+        exit(EXIT_FAILURE);
+    }
+
+    if (strlen(argv[3]) != 1) {
+        fprintf(stderr, "Not a char\n");  // > add error message
+        exit(EXIT_FAILURE);
+    }
+
+    char alphanumeric = argv[3][0];
+
+    if (!isalnum(alphanumeric)) {
+        fprintf(stderr, "Third argument should be an alphanumeric character.\n"); // > add error message constant
         exit(EXIT_FAILURE);
     }
 
