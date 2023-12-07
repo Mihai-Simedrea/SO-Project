@@ -14,13 +14,15 @@
 
 
 const char *USAGE_ERROR = "Usage ./program <director_intrare> <director_iesire> <c>\n"; // > hmm, idk daca sa folosesc extern sau nu
-const char *MEMORY_ALLOCATION_ERROR = "Out of memory\n";
-const char *NO_EXTENSION_FOUND = "Extension Error\n";
-const char *OPEN_FILE_ERROR = "The file can't be opened\n";
+const char *MEMORY_ALLOCATION_ERROR = "Out of memory.\n";
+const char *NO_EXTENSION_FOUND = "Extension Error.\n";
+const char *OPEN_FILE_ERROR = "The file can't be opened.\n";
 const char *CANT_READ_FROM_FILE = "Can't get the data about the file.\n";
 const char *CANT_WRITE_TO_FILE = "Can't write the data to the file.\n";
-const char *CANT_OPEN_DIRECTORY = "Can't open the directory\n";
-const char *FORK_OPERATION_ERROR = "Fork operation error\n";
+const char *CANT_OPEN_DIRECTORY = "Can't open the directory.\n";
+const char *FORK_OPERATION_ERROR = "Fork operation error.\n";
+const char *NOT_A_CHAR_ERROR = "Not a char.\n";
+const char *ARGS_ERROR = "Third argument should be an alphanumeric character.\n";
 
 
 int main(int argc, char **argv) {
@@ -32,14 +34,14 @@ int main(int argc, char **argv) {
     }
 
     if (strlen(argv[3]) != 1) {
-        fprintf(stderr, "Not a char\n");  // > add error message
+        fprintf(stderr, "%s", NOT_A_CHAR_ERROR);
         exit(EXIT_FAILURE);
     }
 
     char alphanumeric = argv[3][0];
 
     if (!isalnum(alphanumeric)) {
-        fprintf(stderr, "Third argument should be an alphanumeric character.\n"); // > add error message constant
+        fprintf(stderr, "%s", ARGS_ERROR);
         exit(EXIT_FAILURE);
     }
 
