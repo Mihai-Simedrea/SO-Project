@@ -40,7 +40,6 @@ uint8_t sprint(const char *_Message) {
  * @return true if match, false if error or don't match.
  */
 bool has_ok_file_extension(const char *_FileName, const char *_ExtensionName) {
-    // > not sure though if I should set hardcoded errno here
     const char *ext = strchr(_FileName, '.');
     
     if (ext == NULL) {
@@ -56,10 +55,11 @@ bool has_ok_file_extension(const char *_FileName, const char *_ExtensionName) {
 
 
 /**
- * <placeholder>.
+ * Retrieves permissions string representation based on file mode.
  * 
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param mode The file mode for which permissions are to be retrieved.
+ * @return A string representing the file permissions in the format "rwxrwxrwx".
+ * 
  */
 char *get_permissions(mode_t mode) {
     static char permissions[10];

@@ -45,12 +45,7 @@ void __convert_to_grayscale(const char *_FullDirectoryPath);
 
 
 
-/**
- * <placeholder>.
- * 
- * @param <placeholder>.
- * @return <placeholder>.
- */
+
 int32_t read_bmp_height(int _Fd) {
     BMPHeader header;
     header = __read_bmp_header(_Fd);
@@ -58,12 +53,6 @@ int32_t read_bmp_height(int _Fd) {
 }
 
 
-/**
- * <placeholder>.
- * 
- * @param <placeholder>.
- * @return <placeholder>.
- */
 int32_t read_bmp_width(int _Fd) {
     BMPHeader header;
     header = __read_bmp_header(_Fd);
@@ -71,12 +60,6 @@ int32_t read_bmp_width(int _Fd) {
 }
 
 
-/**
- * <placeholder>.
- * 
- * @param <placeholder>.
- * @return <placeholder>.
- */
 BMPHeader __read_bmp_header(int _Fd) {
     lseek(_Fd, 0, SEEK_SET);
     BMPHeader header;
@@ -90,12 +73,6 @@ BMPHeader __read_bmp_header(int _Fd) {
 }
 
 
-/**
- * <placeholder>.
- * 
- * @param <placeholder>.
- * @return <placeholder>.
- */
 void __print_bmp_header(BMPHeader header) {
     printf("Type: 0x%X\n", header.type);
     printf("Size: %u bytes\n", header.size);
@@ -116,12 +93,6 @@ void __print_bmp_header(BMPHeader header) {
 }
 
 
-/**
- * <placeholder>.
- *
- * @param <placeholder>.
- * @return <placeholder>.
- */
 void __convert_to_grayscale(const char *_FullDirectoryPath) {
     uint8_t no_channels = 3;
     int file_descriptor = open(_FullDirectoryPath, O_RDWR);
