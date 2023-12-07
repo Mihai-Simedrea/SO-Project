@@ -1,5 +1,3 @@
-// > sa nu uit de free la memorie ms
-
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -13,7 +11,7 @@
 #include "statisticsService.h"
 
 
-const char *USAGE_ERROR = "Usage ./program <director_intrare> <director_iesire> <c>\n"; // > hmm, idk daca sa folosesc extern sau nu
+const char *USAGE_ERROR = "Usage ./program <director_intrare> <director_iesire> <c>\n";
 const char *MEMORY_ALLOCATION_ERROR = "Out of memory.\n";
 const char *NO_EXTENSION_FOUND = "Extension Error.\n";
 const char *OPEN_FILE_ERROR = "The file can't be opened.\n";
