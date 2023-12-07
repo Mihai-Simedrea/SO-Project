@@ -1,21 +1,19 @@
 #!/bin/bash
 
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <file>"
+    echo "Usage: ./script <c>"
     exit 1
 fi
 
-file="$1"
+character="$1"
+correct_sentences=0
 
-if [ ! -f "$file" ]; then
-    echo "File does not exist or is not a regular file."
-    exit 1
-fi
+while IFS= read -r line; do
+    if [[ $line =~ ^[A-Z][a-zA-Z0-9\ \,]*[\?\!\.]$ && ! $line =~ ,\ (si) ]]; then
+        if [[ $line == *"$character"* ]]; then
+            ((correct_sentences++))
+        fi
+    fi
+done
 
-counter=0
-
-while IFS= read -r line || [ -n "$line" ]; do 
-    ((counter++))
-done < "$file"
-
-echo $counter
+echo "$correct_sentences"

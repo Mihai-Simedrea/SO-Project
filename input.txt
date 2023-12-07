@@ -1,23 +1,9 @@
-aaaa
-a
-a
-a
-a
-aaaa
-
-c
-c
-c
-c
-c
-
-c
-fefwefewf
-f
-we
-f
-ewf
-ew
-fewfewfewfew
-f
-ewfew
+Test whatever!
+E foarte tarziu si chiar imi e foarte somn.
+E foarte tarziu si chiar imi e foarte somn fara punct
+E foarte tarziu si chiar imi e foarte somn cu semnul exclamarii!
+E foarte tarziu si chiar imi e foarte somn?
+Chiar da.
+Poate.
+Acum o sa pun un text cu virgula inainte de, si.
+Acum o sa pun un text fara virgula inainte de si.
