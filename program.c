@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    write_statistics_file(current_dir, argv[1], argv[2]);
+    write_statistics_file(current_dir, argv[1], argv[2], alphanumeric);
     
     closedir(current_dir);
     return 0;
