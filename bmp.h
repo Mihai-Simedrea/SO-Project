@@ -1,6 +1,4 @@
-// > sa nu uit de free la memorie ms
-
-#ifndef _BMP_H_  // prevent recursive inclusion
+#ifndef _BMP_H_
 #define _BMP_H_
 
 #include <stdint.h>
@@ -42,7 +40,7 @@ typedef struct {
 int32_t read_bmp_height(int _Fd);
 int32_t read_bmp_width(int _Fd);
 void __print_bmp_header(BMPHeader header);
-BMPHeader __read_bmp_header(int _Fd);  // > I'm really curious if I can set this bad boy to 'private' somehow. ca nu prea e okay - pot sa accesez tot header-ul din main
+BMPHeader __read_bmp_header(int _Fd);
 void __convert_to_grayscale(const char *_FullDirectoryPath);
 
 
@@ -125,6 +123,7 @@ void __print_bmp_header(BMPHeader header) {
  * @return <placeholder>.
  */
 void __convert_to_grayscale(const char *_FullDirectoryPath) {
+    uint8_t no_channels = 3;
     int file_descriptor = open(_FullDirectoryPath, O_RDWR);
     if (file_descriptor == -1) {
         perror(OPEN_FILE_ERROR);
@@ -136,7 +135,7 @@ void __convert_to_grayscale(const char *_FullDirectoryPath) {
     int height = read_bmp_height(file_descriptor);
     int width = read_bmp_width(file_descriptor);
 
-    size_t image_size = height * width * 3;
+    size_t image_size = height * width * no_channels;
 
     image.data = (uint8_t*)malloc(image_size);
     if (image.data == NULL) {
