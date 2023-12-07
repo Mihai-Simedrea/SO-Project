@@ -46,6 +46,7 @@ int main(int argc, char **argv) {
     DIR *current_dir = opendir(argv[1]);
     if (current_dir == NULL) {
         perror(CANT_OPEN_DIRECTORY);
+        exit(EXIT_FAILURE);
     }
 
     write_statistics_file(current_dir, argv[1], argv[2]);

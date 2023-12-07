@@ -108,6 +108,18 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                         perror("fork error");
                         exit(EXIT_FAILURE);
                     }
+                } else {
+                    // i am in parent process
+                    pid_t second_pid = fork();
+
+                    if (second_pid == 0) {
+                        exit(0);
+                    } else if (second_pid < 0) {
+                        perror("fork error");
+                        exit(EXIT_FAILURE);
+                    } else {
+                        // parent process again
+                    }
                 }
             }
             
@@ -121,6 +133,19 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
             } else if (pid < 0) {
                 perror("fork error");
                 exit(EXIT_FAILURE);
+            } else {
+                // parent process
+
+                pid_t second_pid = fork();
+
+                if (second_pid == 0) {
+                    exit(0);
+                } else if (second_pid < 0) {
+                    perror("fork error");
+                    exit(EXIT_FAILURE);
+                } else {
+                    // parent process again
+                }
             }
         } else if (S_ISLNK(file_stat.st_mode)) {
             pid = fork();
@@ -132,6 +157,19 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
             } else if (pid < 0) {
                 perror("fork error");
                 exit(EXIT_FAILURE);
+            } else {
+                // parent process
+
+                pid_t second_pid = fork();
+
+                if (second_pid == 0) {
+                    exit(0);
+                } else if (second_pid < 0) {
+                    perror("fork error");
+                    exit(EXIT_FAILURE);
+                } else {
+                    // parent process again
+                }
             }
         } else {
             printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
