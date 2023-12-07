@@ -21,6 +21,8 @@ const char *CANT_OPEN_DIRECTORY = "Can't open the directory.\n";
 const char *FORK_OPERATION_ERROR = "Fork operation error.\n";
 const char *NOT_A_CHAR_ERROR = "Not a char.\n";
 const char *ARGS_ERROR = "Third argument should be an alphanumeric character.\n";
+const char *WAIT_ERROR = "wait() error.\n";
+const char *PIPE_ERROR = "Pipe error.\n";
 
 
 int main(int argc, char **argv) {

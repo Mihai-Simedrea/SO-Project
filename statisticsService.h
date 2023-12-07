@@ -1,5 +1,3 @@
-// > sa nu uit de free la memorie ms
-
 #include <stdio.h>
 #include <errno.h>
 #include <stdint.h>
@@ -15,6 +13,11 @@
 #include "constants.h"
 #include "bmp.h"
 
+#define CHILD_TO_CHILD_COMMUNICATION_PORT 999
+#define CHILD_PIDS_SIZE 1000
+#define STATISTICS_FILE_LENGTH 400
+#define SYSTEM_COMMAND_LENGTH 100000
+
 
 void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath, char _Character);
 void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath, char _Character);
@@ -23,16 +26,21 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
 char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath);
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics, int _PipeFds[][2], uint32_t _ChildCount);
-void __wait_all_processes(pid_t child_pids[], uint32_t child_count, int pipe_fds[][2]);
+void __wait_all_processes(pid_t _ChildPids[], uint32_t _ChildCount, int _PipeFds[][2]);
 
 
 
 
 /**
- * <placeholder>.
+ * Generates statistics for files in a directory and writes the output to files to an output directory.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _Dir A pointer to the directory structure object.
+ * @param _DirPath The path to the directory to be analyzed.
+ * @param _OutputDirPath The path to the output directory where the statistics file will be saved.
+ * @param _Character The character for the bash script.
+ * 
+ * Note: This function relies on an internal function '__check_file_types_from_directory' 
+ * to process the directory contents and generate statistics.
  */
 void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath, char _Character) {
     __check_file_types_from_directory(_Dir, _DirPath, _OutputDirPath, _Character);
@@ -42,35 +50,46 @@ void write_statistics_file(DIR *_Dir, const char *_DirPath, const char *_OutputD
 
 
 /**
- * <placeholder>.
+ * Analyzes files within a specified directory, generates statistics,
+ * and manages child processes to perform various file operations.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _Dir A pointer to the directory structure object.
+ * @param _DirPath The path to the directory whose files are to be analyzed.
+ * @param _OutputDirPath The path to the output directory where statistics files will be saved.
+ * @param _Character The character for the regex.
+ * 
  */
 void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const char *_OutputDirPath, char _Character) {
     struct dirent *dir_entry;
     struct stat file_stat;
-    char full_directory_path[1000];  // > remove magic number
-    char *statistics = (char*)malloc(400 * sizeof(char));
+    uint32_t full_directory_path_size = sizeof(_DirPath) + sizeof(dir_entry->d_name) + 2;
+    char full_directory_path[full_directory_path_size];
+    char *statistics = (char*)malloc(STATISTICS_FILE_LENGTH * sizeof(char));
     pid_t pid;
-    pid_t child_pids[1000];
+    pid_t child_pids[CHILD_PIDS_SIZE];
     uint32_t child_count = 0;
-    int pipe_fds[1000][2];
+    int pipe_fds[CHILD_PIDS_SIZE][2];
+    uint32_t statistics_file_size = sizeof(_OutputDirPath) + sizeof(dir_entry->d_name) + 21;
+    char statistics_file[statistics_file_size];
+
+    if (statistics == NULL) {
+        perror(MEMORY_ALLOCATION_ERROR);
+        exit(EXIT_FAILURE);
+    }
 
     while ((dir_entry = readdir(_Dir)) != NULL) {
         if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0) {
             continue;
         }
 
-        snprintf(full_directory_path, 1000, "%s/%s", _DirPath, dir_entry->d_name); // > remove magic number
+        snprintf(full_directory_path, full_directory_path_size, "%s/%s", _DirPath, dir_entry->d_name);
 
         if (lstat(full_directory_path, &file_stat) == -1) {
             perror(CANT_READ_FROM_FILE);
             exit(EXIT_FAILURE);
         }
 
-        char statistics_file[500]; // > remove magic number
-        snprintf(statistics_file, sizeof(statistics_file), "%s/%s_statistics.txt", _OutputDirPath, dir_entry->d_name); // > it shows the extension in `d_name`, remove it later
+        snprintf(statistics_file, statistics_file_size, "%s/%s_statistics.txt", _OutputDirPath, dir_entry->d_name);
 
         int stats_fd = open(statistics_file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         if (stats_fd == -1) {
@@ -79,13 +98,12 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
         }
 
         if (pipe(pipe_fds[child_count]) == -1) {
-            perror("Pipe failed"); // > replace with defined error code
+            perror(PIPE_ERROR);
             exit(EXIT_FAILURE);
         }
 
-        // I used position 99 for child to child communication
-        if (pipe(pipe_fds[99]) == -1) {
-            perror("pipe failed"); // > replace with defined error code
+        if (pipe(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT]) == -1) {
+            perror(PIPE_ERROR);
             exit(EXIT_FAILURE);
         }
 
@@ -101,7 +119,7 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                 __write_into_statistics_file(stats_fd, statistics, pipe_fds, child_count);
                 exit(0);
             } else if (pid < 0) {
-                perror("fork error");
+                perror(FORK_OPERATION_ERROR);
                 exit(EXIT_FAILURE);
             } else {
                 if (has_ok_file_extension(full_directory_path, ".bmp")) {
@@ -112,21 +130,20 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                         __convert_to_grayscale(full_directory_path);
                         exit(0);
                     } else if (grayscale_pid < 0) {
-                        perror("fork error");
+                        perror(FORK_OPERATION_ERROR);
                         exit(EXIT_FAILURE);
                     }
                 } else {
-                    // i am in parent process
                     pid_t second_pid = fork();
 
                     if (second_pid == 0) {
-                        char stats_content[100000];
-                        close(pipe_fds[99][1]);
-                        read(pipe_fds[99][0], stats_content, sizeof(stats_content));
-                        close(pipe_fds[99][0]);
+                        char stats_content[STATISTICS_FILE_LENGTH];
+                        close(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][1]);
+                        read(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][0], stats_content, sizeof(stats_content));
+                        close(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][0]);
 
-                        char system_command[100000];
-                        snprintf(system_command, sizeof(system_command) * 100, "./script.sh %c << \"%s\" > temp.txt", 'a', stats_content);
+                        char system_command[SYSTEM_COMMAND_LENGTH];
+                        snprintf(system_command, sizeof(system_command), "./script.sh %c << \"%s\" > temp.txt", _Character, stats_content);
                         system(system_command);
 
                         int system_fd = open("temp.txt", O_RDONLY);
@@ -148,10 +165,8 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
 
                         exit(0);
                     } else if (second_pid < 0) {
-                        perror("fork error");
+                        perror(FORK_OPERATION_ERROR);
                         exit(EXIT_FAILURE);
-                    } else {
-                        // parent process again
                     }
                 }
             }
@@ -164,21 +179,19 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                 __write_into_statistics_file(stats_fd, statistics, pipe_fds, child_count);
                 exit(0);
             } else if (pid < 0) {
-                perror("fork error");
+                perror(FORK_OPERATION_ERROR);
                 exit(EXIT_FAILURE);
             } else {
-                // parent process
-
                 pid_t second_pid = fork();
 
                 if (second_pid == 0) {
-                    char stats_content[100000];
-                    close(pipe_fds[99][1]);
-                    read(pipe_fds[99][0], stats_content, sizeof(stats_content));
-                    close(pipe_fds[99][0]);
+                    char stats_content[STATISTICS_FILE_LENGTH];
+                    close(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][1]);
+                    read(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][0], stats_content, sizeof(stats_content));
+                    close(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][0]);
 
-                    char system_command[100000];
-                    snprintf(system_command, sizeof(system_command) * 100, "./script.sh %c << \"%s\" > temp.txt", 'a', stats_content);
+                    char system_command[SYSTEM_COMMAND_LENGTH];
+                    snprintf(system_command, sizeof(system_command), "./script.sh %c << \"%s\" > temp.txt", _Character, stats_content);
                     system(system_command);
 
                     int system_fd = open("temp.txt", O_RDONLY);
@@ -200,10 +213,8 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                     close(system_fd);
                     exit(0);
                 } else if (second_pid < 0) {
-                    perror("fork error");
+                    perror(FORK_OPERATION_ERROR);
                     exit(EXIT_FAILURE);
-                } else {
-                    // parent process again
                 }
             }
         } else if (S_ISLNK(file_stat.st_mode)) {
@@ -214,21 +225,19 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                 __write_into_statistics_file(stats_fd, statistics, pipe_fds, child_count);
                 exit(0);
             } else if (pid < 0) {
-                perror("fork error");
+                perror(FORK_OPERATION_ERROR);
                 exit(EXIT_FAILURE);
             } else {
-                // parent process
-
                 pid_t second_pid = fork();
 
                 if (second_pid == 0) {
-                    char stats_content[100000];
-                    close(pipe_fds[99][1]);
-                    read(pipe_fds[99][0], stats_content, sizeof(stats_content));
-                    close(pipe_fds[99][0]);
+                    char stats_content[STATISTICS_FILE_LENGTH];
+                    close(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][1]);
+                    read(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][0], stats_content, sizeof(stats_content));
+                    close(pipe_fds[CHILD_TO_CHILD_COMMUNICATION_PORT][0]);
 
-                    char system_command[100000];
-                    snprintf(system_command, sizeof(system_command) * 100, "./script.sh %c << \"%s\" > temp.txt", 'a', stats_content);
+                    char system_command[SYSTEM_COMMAND_LENGTH];
+                    snprintf(system_command, sizeof(system_command), "./script.sh %c << \"%s\" > temp.txt", _Character, stats_content);
                     system(system_command);
 
                     int system_fd = open("temp.txt", O_RDONLY);
@@ -250,14 +259,13 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
                     close(system_fd);
                     exit(0);
                 } else if (second_pid < 0) {
-                    perror("fork error");
+                    perror(FORK_OPERATION_ERROR);
                     exit(EXIT_FAILURE);
-                } else {
-                    // parent process again
                 }
             }
         } else {
-            printf("%s is of unknown type.\n", dir_entry->d_name);  // > Maybe throw error or something
+            printf("%s is of unknown type.\n", dir_entry->d_name);
+            exit(EXIT_FAILURE);
         }
 
         child_pids[child_count++] = pid;
@@ -269,43 +277,50 @@ void __check_file_types_from_directory(DIR *_Dir, const char *_DirPath, const ch
 
 
 /**
- * <placeholder>.
+ * Waits for the termination of all child processes and handles their exit statuses.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _ChildPids An array containing the PIDs of the child processes.
+ * @param _ChildCount The count of child processes to wait for and handle.
+ * @param _PipeFds An array of pipe file descriptors for communication with child processes.
+ * 
  */
-void __wait_all_processes(pid_t child_pids[], uint32_t child_count, int pipe_fds[][2]) { // > refactor param namings
-    int status;
-    for (uint32_t index = 0; index < child_count; ++index) {
-        waitpid(child_pids[index], &status, 0); // > should something be checked here?
+void __wait_all_processes(pid_t _ChildPids[], uint32_t _ChildCount, int _PipeFds[][2]) {
+    int status = 0;
+    int lines_written = 0;
+    for (uint32_t index = 0; index < _ChildCount; ++index) {
+        if (waitpid(_ChildPids[index], &status, 0) == -1) {
+            perror(WAIT_ERROR);
+            exit(EXIT_FAILURE);
+        }
+
         if (WIFEXITED(status)) {
-            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", child_pids[index], WEXITSTATUS(status));
+            printf("S-a încheiat procesul cu pid-ul %d și codul %d\n", _ChildPids[index], WEXITSTATUS(status));
 
-            close(pipe_fds[index][1]);
-            int lines_written;
-            read(pipe_fds[index][0], &lines_written, sizeof(lines_written));
+            close(_PipeFds[index][1]);
+            read(_PipeFds[index][0], &lines_written, sizeof(lines_written));
             printf("Child %d: Lines written = %d\n", index + 1, lines_written);
-
-            close(pipe_fds[index][0]);
+            close(_PipeFds[index][0]);
         }
     }
 }
 
 
 /**
- * <placeholder>.
+ * Constructs statistics related to a directory entry's attributes.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _FileStat The 'struct stat' structure containing file status information.
+ * @param _EntryFileName The name of the directory entry.
+ * @return A dynamically allocated string containing directory attribute statistics.
+ * 
  */
 char *__construct_directory_statistics(struct stat _FileStat, const char *_EntryFileName) {
-    char* statistics = (char*)malloc(400 * sizeof(char));
+    char* statistics = (char*)malloc(STATISTICS_FILE_LENGTH * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
         exit(EXIT_FAILURE);
     }
 
-    snprintf(statistics, 400,
+    snprintf(statistics, STATISTICS_FILE_LENGTH,
              "nume director: %s\n"
              "identificatorul utilizatorului: %d\n"
              "drepturi de acces user: %s\n"
@@ -322,13 +337,15 @@ char *__construct_directory_statistics(struct stat _FileStat, const char *_Entry
 
 
 /**
- * <placeholder>.
+ * Constructs statistics related to a regular file's attributes.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _FileStat The 'struct stat' structure containing file status information.
+ * @param _EntryFileName The name of the regular file.
+ * @return A dynamically allocated string containing regular file attribute statistics.
+ *
  */
 char *__construct_regular_file_statistics(struct stat _FileStat, const char *_EntryFileName) {
-    char* statistics = (char*)malloc(400 * sizeof(char));
+    char* statistics = (char*)malloc(STATISTICS_FILE_LENGTH * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
         exit(EXIT_FAILURE);
@@ -337,7 +354,7 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
     char modification_time[20];
     strftime(modification_time, sizeof(modification_time), "%d.%m.%Y", localtime(&_FileStat.st_mtime));
 
-    snprintf(statistics, 400,
+    snprintf(statistics, STATISTICS_FILE_LENGTH,
              "nume fisier: %s\n"
              "dimensiune: %ld octeti\n"
              "identificatorul utilizatorului: %d\n"
@@ -360,14 +377,17 @@ char *__construct_regular_file_statistics(struct stat _FileStat, const char *_En
 
 
 /**
- * <placeholder>.
+ * Constructs statistics related to a BMP image file's attributes.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _FileStat The 'struct stat' structure containing file status information.
+ * @param _EntryFileName The name of the BMP image file.
+ * @param _FullDirectoryPath The complete path to the BMP image file.
+ * @return A dynamically allocated string containing BMP image file attribute statistics.
+ *
  */
 char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
+    char* statistics = (char*)malloc(STATISTICS_FILE_LENGTH * sizeof(char));
 
-    char* statistics = (char*)malloc(400 * sizeof(char));
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
         exit(EXIT_FAILURE);
@@ -386,7 +406,7 @@ char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_Entry
     char modification_time[20];
     strftime(modification_time, sizeof(modification_time), "%d.%m.%Y", localtime(&_FileStat.st_mtime));
 
-    snprintf(statistics, 400,
+    snprintf(statistics, STATISTICS_FILE_LENGTH,
              "nume fisier: %s\n"
              "inaltime: %d\n"
              "lungime: %d\n"
@@ -413,13 +433,17 @@ char *__construct_bmp_image_statistics(struct stat _FileStat, const char *_Entry
 
 
 /**
- * <placeholder>.
+ * Constructs statistics related to a symbolic link's attributes.
  *
- * @param <placeholder>.
- * @return <placeholder>.
+ * @param _FileStat The 'struct stat' structure containing file status information of the symbolic link.
+ * @param _EntryFileName The name of the symbolic link.
+ * @param _FullDirectoryPath The complete path to the symbolic link.
+ * @return A dynamically allocated string containing symbolic link attribute statistics.
+ *
  */
 char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_EntryFileName, const char *_FullDirectoryPath) {
-    char* statistics = (char*)malloc(400 * sizeof(char));
+    char* statistics = (char*)malloc(STATISTICS_FILE_LENGTH * sizeof(char));
+
     if (statistics == NULL) {
         perror(MEMORY_ALLOCATION_ERROR);
         exit(EXIT_FAILURE);
@@ -431,7 +455,7 @@ char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_E
         exit(EXIT_FAILURE);
     }
 
-    snprintf(statistics, 400,
+    snprintf(statistics, STATISTICS_FILE_LENGTH,
              "nume fisier: %s\n"
              "dimensiune: %ld octeti\n"
              "dimensiune fisier: %ld octeti\n"
@@ -450,10 +474,13 @@ char *__construct_symbolic_link_statistics(struct stat _FileStat, const char *_E
 
 
 /**
- * <placeholder>.
- *
- * @param <placeholder>.
- * @return <placeholder>.
+ * Writes statistics into a statistics file and communicates line count through pipes.
+ * 
+ * @param _StatsFd The file descriptor for the statistics file.
+ * @param _Statistics The string containing statistics information to be written into the file.
+ * @param _PipeFds An array of pipe file descriptors used for inter-process communication.
+ * @param _ChildCount The index of the relevant child process for communication.
+ * 
  */
 void __write_into_statistics_file(int _StatsFd, const char *_Statistics, int _PipeFds[][2], uint32_t _ChildCount) {
     uint32_t lines_written = 0;
@@ -474,10 +501,16 @@ void __write_into_statistics_file(int _StatsFd, const char *_Statistics, int _Pi
     }
 
     close(_PipeFds[_ChildCount][0]);
-    write(_PipeFds[_ChildCount][1], &lines_written, sizeof(lines_written));
+    if (write(_PipeFds[_ChildCount][1], &lines_written, sizeof(lines_written)) == -1) {
+        perror(PIPE_ERROR);
+        exit(EXIT_FAILURE);
+    };
     close(_PipeFds[_ChildCount][1]);
 
-    close(_PipeFds[99][0]);
-    write(_PipeFds[99][1], _Statistics, sizeof(_Statistics) * strlen(_Statistics));
-    close(_PipeFds[99][1]);
+    close(_PipeFds[CHILD_TO_CHILD_COMMUNICATION_PORT][0]);
+    if (write(_PipeFds[CHILD_TO_CHILD_COMMUNICATION_PORT][1], _Statistics, sizeof(_Statistics) * strlen(_Statistics)) == -1) {
+        perror(PIPE_ERROR);
+        exit(EXIT_FAILURE);
+    };
+    close(_PipeFds[CHILD_TO_CHILD_COMMUNICATION_PORT][1]);
 }

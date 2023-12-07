@@ -12,3 +12,5 @@ extern const char *CANT_OPEN_DIRECTORY;
 extern const char *FORK_OPERATION_ERROR;
 extern const char *NOT_A_CHAR_ERROR;
 extern const char *ARGS_ERROR;
+extern const char *WAIT_ERROR;
+extern const char *PIPE_ERROR;
